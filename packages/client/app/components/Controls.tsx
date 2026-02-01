@@ -4,46 +4,22 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
 import { useGameStore } from '../store'
 import { Vector3 } from 'three'
+import { RapierRigidBody } from '@react-three/rapier'
 
+// This component now needs to find the Local Player's RigidBody to apply forces.
+// But since the RigidBody is inside `Player.tsx`, we have a challenge.
+// Solution: We move the input logic *into* the Local Player component or use a store ref.
+// For simplicity in Phase 5: We will emit events that Player.tsx listens to, or pass a ref.
+
+// ACTUALLY: The best way for R3F physics is to have the input handling INSIDE the component with the physics body.
+// So I will move this logic into `Player.tsx` for the local player, and delete this file?
+// No, let's keep Controls as a "Input Manager" that updates a store, and Player reads from it.
+
+// Let's modify Controls to just update the store's "input state", not move directly.
+// ...Actually, direct ref access is fastest for physics.
+
+// REFACTOR: I will delete this file and move the logic into `Player.tsx` (Local Input handling).
+// It's cleaner.
 export default function Controls() {
-  const { move, players, myId } = useGameStore()
-  const keys = useRef<Record<string, boolean>>({})
-  const { camera } = useThree()
-
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => (keys.current[e.code] = true)
-    const up = (e: KeyboardEvent) => (keys.current[e.code] = false)
-    window.addEventListener('keydown', down)
-    window.addEventListener('keyup', up)
-    return () => {
-      window.removeEventListener('keydown', down)
-      window.removeEventListener('keyup', up)
-    }
-  }, [])
-
-  useFrame((state, delta) => {
-    if (!myId || !players[myId]) return
-
-    const player = players[myId]
-    const speed = 5 * delta
-    const pos = new Vector3(...player.position)
-    
-    // Simple movement logic relative to world
-    let moved = false
-    if (keys.current['KeyW'] || keys.current['ArrowUp']) { pos.z -= speed; moved = true }
-    if (keys.current['KeyS'] || keys.current['ArrowDown']) { pos.z += speed; moved = true }
-    if (keys.current['KeyA'] || keys.current['ArrowLeft']) { pos.x -= speed; moved = true }
-    if (keys.current['KeyD'] || keys.current['ArrowRight']) { pos.x += speed; moved = true }
-
-    if (moved) {
-      move([pos.x, pos.y, pos.z], [0, 0, 0])
-      
-      // Camera Follow logic
-      const offset = new Vector3(0, 5, 10)
-      state.camera.position.lerp(pos.clone().add(offset), 0.1)
-      state.camera.lookAt(pos)
-    }
-  })
-
-  return null
+  return null; 
 }
