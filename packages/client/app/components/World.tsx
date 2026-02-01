@@ -2,11 +2,13 @@
 
 import { Canvas } from '@react-three/fiber'
 import { Stars, Environment, Html, Sky } from '@react-three/drei'
+import { Physics } from '@react-three/rapier'
 import { Suspense, useEffect } from 'react'
 import { useGameStore } from '../store'
 import Player from './Player'
 import { Ocean } from './Ocean'
 import { Terrain } from './Terrain'
+import { Trees } from './Trees'
 import Controls from './Controls'
 
 function Scene() {
@@ -16,32 +18,31 @@ function Scene() {
     <>
       {/* Atmosphere */}
       <Sky sunPosition={[100, 20, 100]} turbidity={0.5} rayleigh={0.5} />
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={0.6} />
       <directionalLight 
-        position={[100, 100, 50]} 
+        position={[50, 50, 25]} 
         intensity={1.5} 
         castShadow 
         shadow-mapSize={[2048, 2048]} 
-        shadow-camera-left={-50}
-        shadow-camera-right={50}
-        shadow-camera-top={50}
-        shadow-camera-bottom={-50}
       />
       
-      {/* The World */}
-      <Ocean />
-      <Terrain />
+      <Physics>
+        {/* The World */}
+        <Ocean />
+        <Terrain />
+        <Trees />
 
-      {/* Render All Players */}
-      {Object.values(players).map((player) => (
-        <Player 
-          key={player.id} 
-          id={player.id} 
-          position={player.position} 
-          rotation={player.rotation} 
-          isMe={player.id === myId} 
-        />
-      ))}
+        {/* Players */}
+        {Object.values(players).map((player) => (
+          <Player 
+            key={player.id} 
+            id={player.id} 
+            position={player.position} 
+            rotation={player.rotation} 
+            isMe={player.id === myId} 
+          />
+        ))}
+      </Physics>
 
       <Controls />
       <Stars radius={200} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
@@ -62,7 +63,7 @@ export default function World() {
   return (
     <div className="w-full h-screen bg-black">
       <Canvas shadows camera={{ position: [0, 5, 10], fov: 60 }}>
-        <Suspense fallback={<Html center className="text-white">Terraforming...</Html>}>
+        <Suspense fallback={<Html center className="text-white">Entering Eden...</Html>}>
           <Scene />
         </Suspense>
       </Canvas>
