@@ -1,17 +1,25 @@
 {
   "name": "ghost",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Open World - Ghost SDK for AI Agents",
+  "main": "dist/Ghost.js",
+  "types": "dist/Ghost.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node src/bot.ts",
+    "build": "tsc",
+    "start": "node dist/bot.js"
   },
-  "keywords": [],
+  "keywords": ["metaverse", "ai", "agent", "sdk"],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "dotenv": "^17.2.3",
     "openai": "^6.17.0",
     "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
   }
 }

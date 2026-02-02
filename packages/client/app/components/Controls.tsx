@@ -21,5 +21,5 @@ import { RapierRigidBody } from '@react-three/rapier'
 // REFACTOR: I will delete this file and move the logic into `Player.tsx` (Local Input handling).
 // It's cleaner.
 export default function Controls() {
-  return null; 
+    return null
 }

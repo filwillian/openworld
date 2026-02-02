@@ -1,12 +1,14 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Open World - The World Server",
+  "main": "dist/index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
   },
-  "keywords": [],
+  "keywords": ["metaverse", "multiplayer", "socket.io"],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -14,5 +16,12 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.2",
+    "@types/node": "^22.16.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
   }
 }
