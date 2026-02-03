@@ -33,11 +33,16 @@ bot.on('ready', () => {
         if (decision.action === 'move' && decision.target) {
             bot.move(decision.target[0], decision.target[2])
         } else if (decision.action === 'chat' && decision.message) {
+            // Text chat
             bot.say(decision.message)
+
+            // Spatial voice
+            const audio = await brain.speak(decision.message)
+            if (audio) bot.sendAudio(audio)
         }
 
-        // Loop (Random delay to feel organic)
-        setTimeout(think, Math.random() * 2000 + 1000)
+        // Loop
+        setTimeout(think, Math.random() * 3000 + 2000)
     }
 
     think()

@@ -1,8 +1,9 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
-import { Group, Vector3 } from 'three'
+import { useFrame } from '@react-three/fiber'
+import { PositionalAudio } from '@react-three/drei'
+import { Group, Vector3, AudioLoader, PositionalAudio as ThreePositionalAudio } from 'three'
 import {
     RigidBody,
     CapsuleCollider,
@@ -35,18 +36,46 @@ function SimpleAvatar({ isMe }: { isMe?: boolean }) {
     )
 }
 
-export default function Player({ position, rotation, isMe }: PlayerProps) {
+export default function Player({ id, position, rotation, isMe }: PlayerProps) {
     const rigidBody = useRef<RapierRigidBody>(null)
     const group = useRef<Group>(null)
     const avatarRef = useRef<Group>(null)
-    const { move } = useGameStore()
-    useThree()
+    const audioRef = useRef<ThreePositionalAudio>(null!)
+
+    const { move, audioQueue } = useGameStore()
 
     // Input State
     const keys = useRef<Record<string, boolean>>({})
 
     const previousPosition = useRef(new Vector3(...position))
     const smoothedPosition = useRef(new Vector3(...position))
+
+    const audioUrl = audioQueue?.[id] ?? null
+
+    // Audio Playback Logic (for remote players)
+    useEffect(() => {
+        if (!audioUrl || !audioRef.current) return
+
+        const loader = new AudioLoader()
+        loader.load(audioUrl, buffer => {
+            if (!audioRef.current) return
+            if (audioRef.current.isPlaying) audioRef.current.stop()
+
+            audioRef.current.setBuffer(buffer)
+            audioRef.current.setRefDistance(5)
+            audioRef.current.setRolloffFactor(1)
+            audioRef.current.play()
+
+            // We can safely revoke blob URLs after the buffer is loaded.
+            if (audioUrl.startsWith('blob:')) {
+                try {
+                    URL.revokeObjectURL(audioUrl)
+                } catch {
+                    // ignore
+                }
+            }
+        })
+    }, [audioUrl])
 
     // Setup Input Listeners (Only if isMe)
     useEffect(() => {
@@ -168,6 +197,7 @@ export default function Player({ position, rotation, isMe }: PlayerProps) {
             <group ref={avatarRef}>
                 <SimpleAvatar isMe={false} />
             </group>
+            <PositionalAudio ref={audioRef} />
         </group>
     )
 }

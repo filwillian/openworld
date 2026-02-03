@@ -12,8 +12,13 @@ interface GameState {
     socket: Socket | null
     players: Record<string, PlayerState>
     myId: string | null
+
+    // Queue of audio URLs for specific players
+    audioQueue: Record<string, string | null>
+
     connect: () => void
     move: (pos: [number, number, number], rot: [number, number, number]) => void
+    playAudio: (id: string, url: string) => void
 }
 
 const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001'
@@ -22,6 +27,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     socket: null,
     players: {},
     myId: null,
+
+    audioQueue: {},
+
+    playAudio: (id, url) => {
+        set(state => ({
+            audioQueue: { ...state.audioQueue, [id]: url },
+        }))
+    },
 
     connect: () => {
         if (get().socket) return
@@ -57,6 +70,13 @@ export const useGameStore = create<GameState>((set, get) => ({
                     },
                 }
             })
+        })
+
+        socket.on('player_audio', (payload: { id: string; buffer: ArrayBuffer }) => {
+            const { id, buffer } = payload
+            const blob = new Blob([buffer], { type: 'audio/mpeg' })
+            const url = URL.createObjectURL(blob)
+            get().playAudio(id, url)
         })
 
         socket.on('player_left', id => {

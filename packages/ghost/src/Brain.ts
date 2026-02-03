@@ -10,6 +10,26 @@ export class Brain {
         this.hasKey = !!apiKey
     }
 
+    async speak(text: string): Promise<Uint8Array | null> {
+        if (!this.hasKey) return null
+
+        try {
+            const mp3 = await this.openai.audio.speech.create({
+                model: 'tts-1',
+                voice: 'alloy',
+                input: text,
+            })
+
+            // openai SDK returns a binary response with arrayBuffer()
+            const ab = await mp3.arrayBuffer()
+            return Buffer.from(ab)
+        } catch (error) {
+            const err = error as Error
+            console.error('🧠 [Brain] Speech generation failed:', err.message)
+            return null
+        }
+    }
+
     async decide(perception: Perception): Promise<Decision> {
         if (!this.hasKey) {
             console.log('🧠 [Brain] No API Key. Wandering randomly...')
