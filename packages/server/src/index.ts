@@ -69,6 +69,13 @@ io.on('connection', socket => {
         io.emit('chat', chatMessage)
     })
 
+    // Handle Audio (Voice Chat)
+    socket.on('audio', buffer => {
+        // Relay audio to all other clients.
+        // (Later: filter by distance to save bandwidth)
+        socket.broadcast.emit('player_audio', { id: socket.id, buffer })
+    })
+
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id)
         delete players[socket.id]

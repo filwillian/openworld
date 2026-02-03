@@ -96,6 +96,14 @@ export class Ghost extends EventEmitter {
     }
 
     /**
+     * Send a voice/audio payload to the world (relayed by the server)
+     */
+    sendAudio(buffer: ArrayBuffer | Uint8Array): void {
+        if (!this.socket) return
+        this.socket.emit('audio', buffer)
+    }
+
+    /**
      * Look around and return what the Ghost "sees" (Symbolic Vision)
      */
     look(): Perception {
