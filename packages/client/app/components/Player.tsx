@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { PositionalAudio } from '@react-three/drei'
+import { useGLTF, PositionalAudio } from '@react-three/drei'
 import { Group, Vector3, AudioLoader, PositionalAudio as ThreePositionalAudio } from 'three'
 import {
     RigidBody,
@@ -18,22 +18,12 @@ interface PlayerProps {
     isMe?: boolean
 }
 
-// Simple humanoid avatar using primitive geometry (Phase 1: The Void)
-function SimpleAvatar({ isMe }: { isMe?: boolean }) {
-    return (
-        <group>
-            {/* Body */}
-            <mesh position={[0, 0.75, 0]} castShadow>
-                <capsuleGeometry args={[0.25, 0.5, 8, 16]} />
-                <meshStandardMaterial color={isMe ? '#00ff88' : '#ff8800'} />
-            </mesh>
-            {/* Head */}
-            <mesh position={[0, 1.4, 0]} castShadow>
-                <sphereGeometry args={[0.2, 16, 16]} />
-                <meshStandardMaterial color={isMe ? '#00cc66' : '#cc6600'} />
-            </mesh>
-        </group>
-    )
+
+function CharacterModel() {
+    const { scene } = useGLTF('/models/character.glb')
+    const clone = useMemo(() => scene.clone(), [scene])
+
+    return <primitive object={clone} scale={1} position={[0, -0.9, 0]} />
 }
 
 export default function Player({ id, position, rotation, isMe }: PlayerProps) {
@@ -141,14 +131,14 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
                 previousPosition.current.set(bodyPos.x, bodyPos.y, bodyPos.z)
             }
 
-            // Procedural Animation
+            // Procedural Animation (Bobbing) - Can be removed if model has animations later
             const vel = rigidBody.current.linvel()
             const velMag = Math.sqrt(vel.x ** 2 + vel.z ** 2)
             if (velMag > 0.5) {
                 const time = state.clock.getElapsedTime()
-                avatarRef.current.position.y = Math.sin(time * 15) * 0.05
+                avatarRef.current.position.y = Math.sin(time * 15) * 0.05 - 0.9 // Offset by base position
             } else {
-                avatarRef.current.position.y = 0
+                 avatarRef.current.position.y = -0.9 // Base position
             }
 
             return
@@ -159,6 +149,8 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
             const targetPos = new Vector3(...position)
             smoothedPosition.current.lerp(targetPos, 0.1)
             group.current.position.copy(smoothedPosition.current)
+            // Apply rotation for remote players
+            group.current.rotation.set(rotation[0], rotation[1], rotation[2])
         }
     })
 
@@ -174,7 +166,7 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
                 <CapsuleCollider args={[0.5, 0.3]} position={[0, 0.8, 0]} />
                 <group ref={group}>
                     <group ref={avatarRef}>
-                        <SimpleAvatar isMe={true} />
+                         <CharacterModel />
                     </group>
                     <mesh
                         position={[0, 0.05, 0]}
@@ -195,9 +187,12 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
     return (
         <group ref={group} position={position}>
             <group ref={avatarRef}>
-                <SimpleAvatar isMe={false} />
+                <CharacterModel />
             </group>
-            <PositionalAudio ref={audioRef} />
+            <PositionalAudio ref={audioRef} url={audioUrl || ''} />
         </group>
     )
 }
+
+// Preload the model
+useGLTF.preload('/models/character.glb')
