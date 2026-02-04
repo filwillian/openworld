@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import * as rapier from '@dimforge/rapier3d-compat'
 import { useGLTF, PositionalAudio, useAnimations } from '@react-three/drei'
 import * as THREE from 'three'
 import { Group, Vector3, AudioLoader, PositionalAudio as ThreePositionalAudio } from 'three'
@@ -10,6 +9,7 @@ import {
     RigidBody,
     CapsuleCollider,
     RapierRigidBody,
+    useRapier,
 } from '@react-three/rapier'
 import { useGameStore } from '../store'
 
@@ -42,7 +42,7 @@ function CharacterModel({ isMoving }: { isMoving: boolean }) {
         if (isMoving && walkAnim) {
             idleAnim?.fadeOut(0.2)
             walkAnim.reset().fadeIn(0.2).play()
-            // Adjust speed to look natural (0.8 is usually good for walk)
+            // Adjust speed to look natural
             walkAnim.setEffectiveTimeScale(1.0) 
             activeAction = walkAnim
         } else if (idleAnim) {
@@ -70,6 +70,7 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
     const audioRef = useRef<ThreePositionalAudio>(null!)
 
     const { move, audioQueue } = useGameStore()
+    const { world, rapier } = useRapier()
 
     // Input State
     const keys = useRef<Record<string, boolean>>({})
@@ -151,12 +152,11 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
             }
 
             // Ground Check using Raycast
-            const rapierWorld = rigidBody.current.world
             const origin = rigidBody.current.translation()
             origin.y += 0.1 // Start slightly above feet
             const direction = { x: 0, y: -1, z: 0 }
             const ray = new rapier.Ray(origin, direction)
-            const hit = rapierWorld.castRay(ray, 1.0, true) // Check 1.0 unit down
+            const hit = world.castRay(ray, 1.0, true)
             
             const isGrounded = hit && hit.timeOfImpact < 0.5
 
