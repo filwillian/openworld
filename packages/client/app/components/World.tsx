@@ -1,9 +1,10 @@
 'use client'
 
 import { Canvas } from '@react-three/fiber'
+import * as THREE from 'three'
 import { Stars, Environment, Html, Sky, Stats } from '@react-three/drei'
 import { Physics } from '@react-three/rapier'
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import { useGameStore } from '../store'
 import Player from './Player'
 import { Ocean } from './Ocean'
@@ -39,7 +40,7 @@ function Scene() {
 
             <fogExp2 attach="fog" args={['#d0e6f5', 0.015]} />
 
-            <Physics>
+            <Physics debug>
                 {/* The World */}
                 <Ocean />
                 <Terrain />
@@ -81,6 +82,52 @@ function Scene() {
     )
 }
 
+// ... imports
+
+function BackgroundMusic() {
+    const audioRef = useRef<HTMLAudioElement>(null)
+    const [started, setStarted] = useState(false)
+
+    useEffect(() => {
+        const onInteract = () => {
+            // Resume Web Audio API context (for Three.js PositionalAudio)
+            if (THREE.AudioContext.getContext().state === 'suspended') {
+                THREE.AudioContext.getContext().resume()
+            }
+
+            // Play Background Music (HTML5 Audio)
+            if (!started && audioRef.current) {
+                audioRef.current.play()
+                    .then(() => {
+                        console.log('Background music started!')
+                        setStarted(true)
+                    })
+                    .catch((e) => {
+                        console.warn('Autoplay blocked, waiting for next interaction:', e)
+                        // Do not set started to true, so we try again next time
+                    })
+            }
+        }
+
+        window.addEventListener('click', onInteract)
+        window.addEventListener('keydown', onInteract)
+
+        return () => {
+            window.removeEventListener('click', onInteract)
+            window.removeEventListener('keydown', onInteract)
+        }
+    }, [started])
+
+    return (
+        <audio
+            ref={audioRef}
+            src="/music.m4a"
+            loop
+            preload="auto"
+        />
+    )
+}
+
 export default function World() {
     const connect = useGameStore(state => state.connect)
     const myId = useGameStore(state => state.myId)
@@ -94,6 +141,7 @@ export default function World() {
 
     return (
         <div className="w-full h-screen bg-black">
+            <BackgroundMusic />
             <Canvas
                 shadows
                 camera={{ position: [0, 5, 10], fov: 60 }}

@@ -149,18 +149,20 @@ function TerrainChunk({ chunkX, chunkZ, seed = 42 }: TerrainChunkProps) {
     }, [chunkX, chunkZ, noise2D])
 
     return (
-        <mesh
-            rotation={[-Math.PI / 2, 0, 0]}
-            position={[chunkX * CHUNK_SIZE, -2, chunkZ * CHUNK_SIZE]}
-            receiveShadow
-            castShadow
-            geometry={geometry}>
-            <meshStandardMaterial
-                vertexColors
-                roughness={0.9}
-                metalness={0.0}
-            />
-        </mesh>
+        <RigidBody type="fixed" colliders="trimesh">
+            <mesh
+                rotation={[-Math.PI / 2, 0, 0]}
+                position={[chunkX * CHUNK_SIZE, -2, chunkZ * CHUNK_SIZE]}
+                receiveShadow
+                castShadow
+                geometry={geometry}>
+                <meshStandardMaterial
+                    vertexColors
+                    roughness={0.9}
+                    metalness={0.0}
+                />
+            </mesh>
+        </RigidBody>
     )
 }
 
@@ -191,17 +193,15 @@ export function ChunkManager({
     }, [playerChunkX, playerChunkZ, renderDistance])
 
     return (
-        <RigidBody type="fixed" colliders="trimesh">
-            <group>
-                {activeChunks.map(chunk => (
-                    <TerrainChunk
-                        key={chunk.key}
-                        chunkX={chunk.x}
-                        chunkZ={chunk.z}
-                    />
-                ))}
-            </group>
-        </RigidBody>
+        <group>
+            {activeChunks.map(chunk => (
+                <TerrainChunk
+                    key={chunk.key}
+                    chunkX={chunk.x}
+                    chunkZ={chunk.z}
+                />
+            ))}
+        </group>
     )
 }
 

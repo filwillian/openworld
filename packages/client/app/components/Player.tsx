@@ -1,8 +1,10 @@
 'use client'
 
-import { useRef, useEffect, useMemo } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useGLTF, PositionalAudio } from '@react-three/drei'
+import * as rapier from '@dimforge/rapier3d-compat'
+import { useGLTF, PositionalAudio, useAnimations } from '@react-three/drei'
+import * as THREE from 'three'
 import { Group, Vector3, AudioLoader, PositionalAudio as ThreePositionalAudio } from 'three'
 import {
     RigidBody,
@@ -18,12 +20,47 @@ interface PlayerProps {
     isMe?: boolean
 }
 
+function CharacterModel({ isMoving }: { isMoving: boolean }) {
+    const group = useRef<Group>(null)
+    const { scene, animations } = useGLTF('/models/character.glb')
+    const { actions } = useAnimations(animations, group)
 
-function CharacterModel() {
-    const { scene } = useGLTF('/models/character.glb')
+    // Clone scene for multiple instances
     const clone = useMemo(() => scene.clone(), [scene])
 
-    return <primitive object={clone} scale={1} position={[0, -0.9, 0]} />
+    useEffect(() => {
+        // Fallback: If animations are named differently, try to play the first one
+        // Standard names: "Idle", "Walk", "Run", or "mixamo.com"
+        
+        let activeAction: THREE.AnimationAction | null = null
+
+        // Try to find a walk animation
+        const walkAnim = actions['Walk'] || actions['walk'] || actions['Run'] || actions['run'] || Object.values(actions)[0]
+        // Try to find an idle animation
+        const idleAnim = actions['Idle'] || actions['idle'] || Object.values(actions)[0]
+
+        if (isMoving && walkAnim) {
+            idleAnim?.fadeOut(0.2)
+            walkAnim.reset().fadeIn(0.2).play()
+            // Adjust speed to look natural (0.8 is usually good for walk)
+            walkAnim.setEffectiveTimeScale(1.0) 
+            activeAction = walkAnim
+        } else if (idleAnim) {
+            walkAnim?.fadeOut(0.2)
+            idleAnim.reset().fadeIn(0.2).play()
+            activeAction = idleAnim
+        }
+
+        return () => {
+             activeAction?.fadeOut(0.2)
+        }
+    }, [isMoving, actions])
+
+    return (
+        <group ref={group} dispose={null}>
+           <primitive object={clone} scale={1} position={[0, -0.85, 0]} />
+        </group>
+    )
 }
 
 export default function Player({ id, position, rotation, isMe }: PlayerProps) {
@@ -36,6 +73,9 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
 
     // Input State
     const keys = useRef<Record<string, boolean>>({})
+
+    // Animation State
+    const [isMoving, setIsMoving] = useState(false)
 
     const previousPosition = useRef(new Vector3(...position))
     const smoothedPosition = useRef(new Vector3(...position))
@@ -60,8 +100,8 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
             if (audioUrl.startsWith('blob:')) {
                 try {
                     URL.revokeObjectURL(audioUrl)
-                } catch {
-                    // ignore
+                } catch (error) {
+                    console.error('Failed to revoke blob URL:', error)
                 }
             }
         })
@@ -83,9 +123,12 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
     useFrame((state, delta) => {
         if (!group.current || !avatarRef.current) return
 
+        let currentSpeed = 0
+
         // --- LOCAL PLAYER (PHYSICS DRIVEN) ---
         if (isMe && rigidBody.current) {
-            const speed = 500 * delta
+            // Reduced speed for more natural walking pace (was 500)
+            const speed = 150 * delta
             const impulse = { x: 0, y: 0, z: 0 }
             let moved = false
 
@@ -93,6 +136,7 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
                 impulse.z -= speed
                 moved = true
             }
+            // ... (other keys) ...
             if (keys.current['KeyS'] || keys.current['ArrowDown']) {
                 impulse.z += speed
                 moved = true
@@ -106,21 +150,35 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
                 moved = true
             }
 
-            // Apply movement
-            if (moved) {
+            // Ground Check using Raycast
+            const rapierWorld = rigidBody.current.world
+            const origin = rigidBody.current.translation()
+            origin.y += 0.1 // Start slightly above feet
+            const direction = { x: 0, y: -1, z: 0 }
+            const ray = new rapier.Ray(origin, direction)
+            const hit = rapierWorld.castRay(ray, 1.0, true) // Check 1.0 unit down
+            
+            const isGrounded = hit && hit.timeOfImpact < 0.5
+
+            if (moved && isGrounded) {
                 rigidBody.current.applyImpulse(impulse, true)
                 avatarRef.current.rotation.y = Math.atan2(impulse.x, impulse.z)
+                currentSpeed = 1 // Moving
+            } else {
+                currentSpeed = 0 // Idle
             }
+            
+            setIsMoving(currentSpeed > 0.1 && !!isGrounded)
 
-            // Camera Follow
+            // Camera Follow (Tighter: 0.2 lerp)
             const bodyPos = rigidBody.current.translation()
             const targetCam = new Vector3(
                 bodyPos.x,
-                bodyPos.y + 5,
-                bodyPos.z + 10,
+                bodyPos.y + 4,
+                bodyPos.z + 6,  // Closer/Lower for TPS feel (was +10)
             )
-            state.camera.position.lerp(targetCam, 0.1)
-            state.camera.lookAt(bodyPos.x, bodyPos.y, bodyPos.z)
+            state.camera.position.lerp(targetCam, 0.2) // Faster follow (was 0.1)
+            state.camera.lookAt(bodyPos.x, bodyPos.y + 1, bodyPos.z) // Look slightly above feet
 
             // Sync to Server
             if (
@@ -131,22 +189,15 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
                 previousPosition.current.set(bodyPos.x, bodyPos.y, bodyPos.z)
             }
 
-            // Procedural Animation (Bobbing) - Can be removed if model has animations later
-            const vel = rigidBody.current.linvel()
-            const velMag = Math.sqrt(vel.x ** 2 + vel.z ** 2)
-            if (velMag > 0.5) {
-                const time = state.clock.getElapsedTime()
-                avatarRef.current.position.y = Math.sin(time * 15) * 0.05 - 0.9 // Offset by base position
-            } else {
-                 avatarRef.current.position.y = -0.9 // Base position
-            }
-
             return
         }
 
         // --- REMOTE PLAYER (NETWORK DRIVEN) ---
         if (!isMe) {
             const targetPos = new Vector3(...position)
+            const dist = smoothedPosition.current.distanceTo(targetPos)
+            setIsMoving(dist > 0.05) // Infer movement for remote players based on interpolation distance
+
             smoothedPosition.current.lerp(targetPos, 0.1)
             group.current.position.copy(smoothedPosition.current)
             // Apply rotation for remote players
@@ -159,14 +210,14 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
         return (
             <RigidBody
                 ref={rigidBody}
-                position={position}
+                position={[position[0], position[1] + 5, position[2]]} // Spawn higher
                 enabledRotations={[false, false, false]}
                 colliders={false}
-                linearDamping={5}>
+                linearDamping={0.5}>
                 <CapsuleCollider args={[0.5, 0.3]} position={[0, 0.8, 0]} />
                 <group ref={group}>
                     <group ref={avatarRef}>
-                         <CharacterModel />
+                         <CharacterModel isMoving={isMoving} />
                     </group>
                     <mesh
                         position={[0, 0.05, 0]}
@@ -187,7 +238,7 @@ export default function Player({ id, position, rotation, isMe }: PlayerProps) {
     return (
         <group ref={group} position={position}>
             <group ref={avatarRef}>
-                <CharacterModel />
+                <CharacterModel isMoving={isMoving} />
             </group>
             <PositionalAudio ref={audioRef} url={audioUrl || ''} />
         </group>
